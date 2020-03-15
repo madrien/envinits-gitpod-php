@@ -3,7 +3,7 @@ FROM gitpod/workspace-full
 USER root
 
 RUN apt-get update \
- && apt-get -y install postgresql postgresql-contrib mysql-server mysql-client \
+ && apt-get -y install mysql-server mysql-client \
  && apt-get -y install php-fpm php-cli php-bz2 php-bcmath php-gmp php-imap php-shmop php-soap php-xmlrpc php-xsl php-ldap \
  && apt-get -y install php-amqp php-apcu php-imagick php-memcached php-mongodb php-oauth php-redis\
  && apt-get clean && rm -rf /var/cache/apt/* /var/lib/apt/lists/* /tmp/*
@@ -14,9 +14,6 @@ RUN mkdir /var/run/mysqld \
 RUN a2enmod rewrite
 
 RUN echo 'worker_processes auto;\n\
-pid /var/run/nginx/nginx.pid;\n\
-include /etc/nginx/modules-enabled/*.conf;\n\
-env NGINX_DOCROOT_IN_REPO;\n\
 env GITPOD_REPO_ROOT;\n\
 events {\n\
 	worker_connections 768;\n\
@@ -28,17 +25,12 @@ http {\n\
 	tcp_nodelay on;\n\
 	keepalive_timeout 65;\n\
 	types_hash_max_size 2048;\n\
-	include /etc/nginx/mime.types;\n\
-	access_log /var/log/nginx/access.log;\n\
-	error_log /var/log/nginx/error.log;\n\
 	gzip on;\n\
-	include /etc/nginx/conf.d/*.conf;\n\
     server {\n\
-        set_by_lua $nginx_docroot_in_repo   '"'"'return os.getenv("NGINX_DOCROOT_IN_REPO")'"'"';\n\
         set_by_lua $gitpod_repo_root        '"'"'return os.getenv("GITPOD_REPO_ROOT")'"'"';\n\
         listen         0.0.0.0:8002;\n\
         location / {\n\
-            root $gitpod_repo_root/$nginx_docroot_in_repo;\n\
+            root $gitpod_repo_root;\n\
             index index.html index.htm index.php;\n\
         }\n\
     }\n\
@@ -72,13 +64,6 @@ expire_logs_days	= 10\n\
 max_binlog_size     = 100M' > /etc/mysql/my.cnf
 
 USER gitpod
-ENV PATH="$PATH:/usr/lib/postgresql/10/bin"
-ENV PGDATA="/home/gitpod/pg/data"
-RUN mkdir -p ~/pg/data; mkdir -p ~/pg/scripts; mkdir -p ~/pg/log; mkdir -p ~/pg/sockets; initdb -D pg/data/
-RUN echo '#!/bin/bash\npg_ctl -D ~/pg/data/ -l ~/pg/log/pgsql.log -o "-k ~/pg/sockets" start' > ~/pg/scripts/pg_start.sh
-RUN echo '#!/bin/bash\npg_ctl -D ~/pg/data/ -l ~/pg/log/pgsql.log -o "-k ~/pg/sockets" stop' > ~/pg/scripts/pg_stop.sh
-RUN chmod +x ~/pg/scripts/*
-ENV PATH="$PATH:$HOME/pg/scripts"
 
 RUN mysqld --daemonize --skip-grant-tables \
     && sleep 3 \
